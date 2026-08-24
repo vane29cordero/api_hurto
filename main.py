@@ -1,6 +1,9 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from database import create_tables, get_connection
-from models import Tipo, Hurto
+from models import Tipo, Hurto, UsuarioRegistrado, Token
+from auth import hashear_password, verficar_password, crear_token, obtener_usuario_actual
+import psycopg
 
 # py -m uvicorn main:app --reload
 
@@ -183,3 +186,109 @@ def delete_hurto(id: int):
     if affect_rows == 0:
         raise HTTPException(status_code=404, detail="hurto no encontrado")
     return {"mensaje": "hurto eliminado exitosamente"}
+
+@app.post("/registro")
+def registrar_usuario(usuario: UsuarioRegistrado):
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    password_hash = hashear_password(usuario.password)
+
+    try:
+        cur.execute(
+            "INSERT INTO usuarios (username, password_hash)" \
+            "VALUES (%s, %s) RETURNING id",
+            (usuario.username, password_hash)
+        )
+
+        nuevo_id = cur.fetchone()["id"]
+        conn.commit()
+
+    except psycopg.errors.UniqueViolation:
+        conn.rollback()
+        cur.close()
+        conn.close()
+
+        raise HTTPException(status_code=400, detail="Ese nombre de usuario ya existe.")
+
+    cur.close()
+    conn.close()
+
+    return {"mensaje": "Usuario registrado", "id": nuevo_id}
+
+@app.post("/login", response_model=Token)
+def login(form_data: OAuth2PasswordRequestForm = Depends()):
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute(
+        "SELECT id, username, password_hash FROM usuarios WHERE  username = %s",
+        (form_data.username,)
+    )
+
+    usuario = cur.fetchone()
+    cur.close()
+    conn.close()
+
+    if not usuario or verficar_password(
+        form_data.password, usuario["password_hash"
+                                    ]):
+        token = crear_token({"sub": usuario["username"], "id": usuario["id"]})
+
+    return {"access_token": token, "token_type": "bearer"}
+
+@app.get("/hurtos")
+def listar_hurtos():
+
+    conn = get_connection
+    cur = conn.cursor()
+
+    cur.execute(
+        "SELECT * FROM hurtos ORDER BY id"
+    )
+
+    hurtos = cur.fetchall()
+    conn.close()
+    cur.close()
+
+    return hurtos
+
+@app.post("/hurtos")
+def crear_hurto(hurtos: Hurto, usuario_actual: dict = Depends(obtener_usuario_actual)):
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute(
+        "INSERT INTO hurtos (denunciante, direccion, fechaHurto, tipoHurto_id) VALUES (%s, %s, %s, %s) RETURNING id",
+        (hurtos.denunciante, hurtos.direccion, hurtos.fechaHurto, hurtos.tipoHurto_id)
+    )
+
+    nuevo_id = cur.fetchone()["id"]
+
+    cur.commit()
+    conn.close()
+    cur.close()
+
+    return {"mensaje": "Hurto creado", "id": nuevo_id, "creado por": usuario_actual["sub"]}
+
+@app.delete("/hurtos/{id}")
+def eliminar_hurto(id: int, usuario_actual: dict = Depends(obtener_usuario_actual)):
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute(
+        "DELETE FROM hurtos WHERE id = %s", (id,)
+    )
+
+    filas_afectadas = cur.rowcount
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    if filas_afectadas == 0:
+        raise HTTPException(status_code=404, detail="Hurto no encotrado")
+    return {"mensaje": "Hurto eliminado"}

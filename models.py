@@ -10,3 +10,10 @@ class Hurto(BaseModel):
     fechaHurto: date
     tipoHurto_id: int
 
+class UsuarioRegistrado(BaseModel):
+    username: str
+    password: str
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
