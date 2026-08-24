@@ -51,7 +51,7 @@ def verificar_token(token: str) -> dict:
 def obtener_usuario_actual(token: str = Depends(oauth2_scheme)) -> dict:
 
     try: 
-        payload = verficar_password(token)
+        payload = verificar_token(token)
 
     except ValueError:
         raise HTTPException(
