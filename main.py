@@ -16,7 +16,7 @@ def inicio():
     return {"mensaje": "API funcionando correctamente"}  
 
 @app.post("/tipos")
-def create_type(type: Tipo):
+def create_type(type: Tipo, usuario_actual: dict = Depends(obtener_usuario_actual)):
 
     conn = get_connection()
     cur = conn.cursor()
@@ -65,7 +65,7 @@ def search_type(id: int):
     raise HTTPException(status_code=404, detail="Tipo de hurto no encontrado")
 
 @app.delete("/tipos/{id}")
-def delete_type(id: int):
+def delete_type(id: int, usuario_actual: dict = Depends(obtener_usuario_actual)):
 
     conn = get_connection()
     cur = conn.cursor()
@@ -85,7 +85,7 @@ def delete_type(id: int):
     return {"mensaje": "Tipo de Hurto eliminado exitosamente"}   
 
 @app.post("/hurtos")
-def create_hurto(hurto: Hurto):
+def create_hurto(hurto: Hurto, usuario_actual: dict = Depends(obtener_usuario_actual)):
 
     conn = get_connection()
     cur = conn.cursor()
@@ -110,17 +110,20 @@ def create_hurto(hurto: Hurto):
     return {"mensaje": "Hurto creado", "id": new_id};
 
 @app.get("/hurtos")
-def listar_hurto():
+def listar_hurtos():
 
-    conn = get_connection()
+    conn = get_connection
+    cur = conn.cursor()
 
-    hurto = conn.execute(
-    "SELECT * FROM hurtos"
-    ).fetchall()
+    cur.execute(
+        "SELECT * FROM hurtos ORDER BY id"
+    )
 
+    hurtos = cur.fetchall()
     conn.close()
+    cur.close()
 
-    return [dict(x) for x in hurto]
+    return hurtos
 
 @app.get("/hurtos/{id}")
 def search_hurto(id: int):
@@ -141,7 +144,7 @@ def search_hurto(id: int):
     raise HTTPException(status_code=404, detail="hurto no encontrado")
 
 @app.put("/hurtos/{id}")
-def update_hurto(id: int, hurto: Hurto):
+def update_hurto(id: int, hurto: Hurto, usuario_actual: dict = Depends(obtener_usuario_actual)):
 
     conn = get_connection()
     cur = conn.cursor()
@@ -167,7 +170,7 @@ def update_hurto(id: int, hurto: Hurto):
     return {"mensaje": "hurto actualizado exitosamente"}
 
 @app.delete("/hurtos/{id}")
-def delete_hurto(id: int):
+def delete_hurto(id: int, usuario_actual: dict = Depends(obtener_usuario_actual)):
 
     conn = get_connection()
 
@@ -238,57 +241,3 @@ def login(form_data: OAuth2PasswordRequestForm = Depends()):
         token = crear_token({"sub": usuario["username"], "id": usuario["id"]})
 
     return {"access_token": token, "token_type": "bearer"}
-
-@app.get("/hurtos")
-def listar_hurtos():
-
-    conn = get_connection
-    cur = conn.cursor()
-
-    cur.execute(
-        "SELECT * FROM hurtos ORDER BY id"
-    )
-
-    hurtos = cur.fetchall()
-    conn.close()
-    cur.close()
-
-    return hurtos
-
-@app.post("/hurtos")
-def crear_hurto(hurtos: Hurto, usuario_actual: dict = Depends(obtener_usuario_actual)):
-
-    conn = get_connection()
-    cur = conn.cursor()
-
-    cur.execute(
-        "INSERT INTO hurtos (denunciante, direccion, fechaHurto, tipoHurto_id) VALUES (%s, %s, %s, %s) RETURNING id",
-        (hurtos.denunciante, hurtos.direccion, hurtos.fechaHurto, hurtos.tipoHurto_id)
-    )
-
-    nuevo_id = cur.fetchone()["id"]
-
-    cur.commit()
-    conn.close()
-    cur.close()
-
-    return {"mensaje": "Hurto creado", "id": nuevo_id, "creado por": usuario_actual["sub"]}
-
-@app.delete("/hurtos/{id}")
-def eliminar_hurto(id: int, usuario_actual: dict = Depends(obtener_usuario_actual)):
-
-    conn = get_connection()
-    cur = conn.cursor()
-
-    cur.execute(
-        "DELETE FROM hurtos WHERE id = %s", (id,)
-    )
-
-    filas_afectadas = cur.rowcount
-    conn.commit()
-    cur.close()
-    conn.close()
-
-    if filas_afectadas == 0:
-        raise HTTPException(status_code=404, detail="Hurto no encotrado")
-    return {"mensaje": "Hurto eliminado"}
