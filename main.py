@@ -112,7 +112,7 @@ def create_hurto(hurto: Hurto, usuario_actual: dict = Depends(obtener_usuario_ac
 @app.get("/hurtos")
 def listar_hurtos():
 
-    conn = get_connection
+    conn = get_connection()
     cur = conn.cursor()
 
     cur.execute(
@@ -129,7 +129,6 @@ def listar_hurtos():
 def search_hurto(id: int):
 
     conn = get_connection()
-
     cur = conn.cursor()
 
     cur.execute("SELECT id, denunciante, direccion, fechaHurto, fechaRegistro, tipoHurto_id FROM hurtos WHERE id = %s", (id,))
@@ -173,7 +172,6 @@ def update_hurto(id: int, hurto: Hurto, usuario_actual: dict = Depends(obtener_u
 def delete_hurto(id: int, usuario_actual: dict = Depends(obtener_usuario_actual)):
 
     conn = get_connection()
-
     cur = conn.cursor()
 
     cur.execute(
