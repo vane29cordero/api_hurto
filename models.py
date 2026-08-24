@@ -5,7 +5,7 @@ class Tipo(BaseModel):
     nombre: str
 
 class Hurto(BaseModel):
-    denunciante: int
+    denunciante: str
     direccion: str
     fechaHurto: date
     tipoHurto_id: int
