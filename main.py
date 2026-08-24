@@ -148,14 +148,6 @@ def update_hurto(id: int, hurto: Hurto, usuario_actual: dict = Depends(obtener_u
     conn = get_connection()
     cur = conn.cursor()
 
-    cur.execute("SELECT id FROM hurtos WHERE id = %s",
-        (hurto.tipoHurto_id,))
-
-    if not cur.fetchone():
-        cur.close()
-        conn.close()
-        raise HTTPException(status_code=404, detail="Hurto no existe")
-
     cur.execute("UPDATE hurtos SET denunciante = %s, direccion = %s, fechaHurto = %s, tipoHurto_id = %s WHERE id = %s", 
                 (hurto.denunciante, hurto.direccion, hurto.fechaHurto, hurto.tipoHurto_id, id))
 
